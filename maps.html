@@ -1,0 +1,236 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+	
+	<link href="css/bootstrap.css" rel="stylesheet">
+	
+	<script type="text/javascript" src="js/jquery-1.10.2.js"></script>	
+	<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=places"></script>
+	
+	<style type="text/css">
+	html, body{
+		height: 100%;
+		margin: 0px;
+		padding: 0px;
+	}
+	
+	#map-canvas 
+	{
+		width:90%;
+		height: 90%;
+		margin: 10px auto;
+		padding: 0px;
+		
+    }
+	
+	#fromToText{
+		width: 50%;
+		margin: 0.5% auto;
+	}
+	
+	input[type="text"]{
+		width:40%; 
+		margin:1% 4%;
+		float: left;
+	}
+	
+	#serachRoutes{
+		width: 4%;
+		margin: 1% auto;
+	}
+	</style>
+	
+</head>
+<body>
+	
+	<div id="fromToText">
+		<input type="text" placeholder="From" id="from" class="form-control"/>
+		<input type="text" placeholder="To" id="to" class="form-control"/>
+	</div>
+	
+	
+	<div id="map-canvas"></div>	
+	
+	<div id="serachRoutes">
+		<input type="button" value="Search" id="search" class="btn btn-primary"/>
+	</div>
+	
+	<script type="text/javascript">
+		
+		$(document).ready(function(){
+			var rendererOptions = {
+				draggable: true,
+			};
+			var directionsDisplay = new google.maps.DirectionsRenderer(rendererOptions);
+			var geocoder;
+			var directionsService = new google.maps.DirectionsService();
+			var map;
+			var marker;
+			//var myDirections;
+			var myRoute = {};
+			
+			google.maps.event.addDomListener(window, 'load', initialize);
+			
+			function initialize(){
+				geocoder = geocoder = new google.maps.Geocoder();
+				var chicago = new google.maps.LatLng(36.8000, 10.1833);
+				var mapOptions = {
+					zoom:3,
+					mapTypeId: google.maps.MapTypeId.ROADMAP,
+					center: chicago
+				}
+				map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+				directionsDisplay.setMap(map);
+				bindEvents(map);
+			}
+			
+			
+			function bindEvents(map){
+				var fromLocation = (document.getElementById('from'));
+				var autocompleteFrom = new google.maps.places.Autocomplete(fromLocation);
+				autocompleteFrom.bindTo('bounds', map);
+				
+				var toLocation = (document.getElementById('to'));
+				var autocompleteTo = new google.maps.places.Autocomplete(toLocation);
+				autocompleteTo.bindTo('bounds', map);
+				
+				google.maps.event.addListener(autocompleteFrom, 'place_changed', putMarker);
+				google.maps.event.addListener(autocompleteTo, 'place_changed', putMarker);
+				
+				$('#to').on('blur', calcRoute);
+				
+				google.maps.event.addListener(directionsDisplay, 'directions_changed', function() {
+					getDirections(directionsDisplay.directions);
+				});
+				
+				$("#search").on('click', function(){
+					sendDirections(myRoute);
+				});
+			}	
+			
+			function putMarker(){
+				var place = this.getPlace();
+				//console.log(place.geometry.location);
+				
+				marker = new google.maps.Marker({
+					map:map,
+					animation: google.maps.Animation.DROP,
+					position: place.geometry.location
+				});
+				
+				map.panTo(place.geometry.location);
+				map.setZoom(7);
+			}
+			
+			function calcRoute(){
+				//alert("calcROute");
+				var start = document.getElementById('from').value;
+				var end = document.getElementById('to').value;
+				var request = {
+					origin:start,
+					destination:end,
+					travelMode: google.maps.DirectionsTravelMode.DRIVING
+				};
+				
+				directionsService.route(request, function(response, status){
+					if(status == google.maps.DirectionsStatus.OK){
+						directionsDisplay.setDirections(response);
+					}
+				});
+			}
+			
+			/*
+			Routes
+				bounds
+				copyrights
+				legs[{}]
+					distance: Object
+					duration: Object
+					end_address: string
+					end_location: 
+					start_address: string
+					start_location: 
+					steps: [{}]
+						distance: Object
+						duration: Object
+						encoded_lat_lngs: ""
+						end_location: N
+						end_point: N
+						instructions: ""
+						lat_lngs: Array[]
+						maneuver: ""
+						path: Array[]
+						polyline: Object
+						start_location: N
+						start_point: N
+						travel_mode: ""
+						
+					via_waypoint: []
+					via_waypoints: []
+				overview_path[]
+				overview_polyline{}
+				warnings[]
+				waypoint_order[]
+				
+			*/
+			
+			function getDirections(selectedRoute){
+				console.log("Directions");
+				console.log(selectedRoute.routes);
+				console.log(typeof selectedRoute.routes[0].legs[0].end_location);
+				for(var k = 0; k < selectedRoute.routes.length; k++){
+					myRoute.summary = selectedRoute.routes[0].summary;
+					myRoute.bounds = selectedRoute.routes[0].bounds;
+					myRoute.copyrights = selectedRoute.routes[0].copyrights;
+					myRoute.overview_path = selectedRoute.routes[0].overview_path;
+					myRoute.overview_polyline = selectedRoute.routes[0].overview_polyline;
+					myRoute.warnings = selectedRoute.routes[0].warnings;
+					myRoute.waypoint_order = selectedRoute.routes[0].waypoint_order;
+
+					/*Legs*/
+					myRoute.legs = [{}];
+					var myLegs = selectedRoute.routes[0].legs;
+					for(var m = 0; m < myLegs.length; m++){
+						myRoute.legs[m].distance = myLegs[m].distance;
+						myRoute.legs[m].duration = myLegs[m].duration;
+						myRoute.legs[m].end_address = myLegs[m].end_address;
+						myRoute.legs[m].end_location = myLegs[m].end_location;
+						myRoute.legs[m].start_address = myLegs[m].start_address;
+						myRoute.legs[m].start_location = myLegs[m].start_location;
+						myRoute.legs[m].via_waypoint = myLegs[m].via_waypoint;
+						myRoute.legs[m].via_waypoints = myLegs[m].via_waypoints;
+						
+						/*Steps*/
+						myRoute.legs[m].steps = [{}];		
+						var mySteps = myLegs[m].steps;
+						for(var n = 0; n < mySteps.length; n++){
+							myRoute.legs[m].steps[n] = mySteps[n];
+						}
+					}
+				}
+				//console.log(myRoute.legs[0].steps[1].encoded_lat_lngs);
+			}
+			
+			function sendDirections(myRoute){
+				console.log("sending..");
+				console.log(myRoute);
+				$.ajax({
+					type: "POST",
+					url: "./test.php",
+					data: JSON.stringify(myRoute),
+					success: function(data){
+						alert("sent to test.php");	
+					},
+					error: function(){
+						alert("error");
+					}
+				});
+			}
+			
+		});
+		
+	</script>
+</body>
+</html>
